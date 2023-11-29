@@ -11,7 +11,7 @@ class TextEncoder(nn.Module):
         self.tokenizer_base = self.model_base.tokenizer
         self.fc_1 = nn.Linear(self.model_base.get_sentence_embedding_dimension(), 1024)
         self.relu_1 = nn.ReLU()
-        self.fc_2 = nn.Linear(1024, 1024)
+        self.fc_2 = nn.Linear(1024, 768)
 
         if freeze_base:
             for param in self.model_base.parameters():
