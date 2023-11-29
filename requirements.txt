@@ -1,1 +1,4 @@
-sentence_transformers
+transformers 
+sentence-transformers 
+librosa 
+matplotlib
