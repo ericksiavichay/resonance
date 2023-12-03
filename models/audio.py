@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from transformers import AutoFeatureExtractor, AutoModelForAudioClassification
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class AudioEncoder(nn.Module):
     def __init__(self):
         super().__init__()
@@ -19,7 +21,7 @@ class AudioEncoder(nn.Module):
 
     def forward(self, audio):
         # Pass input through the audio model (excluding the classifier head)
-        inputs = self.audio_extractor(audio, sampling_rate=16000, return_tensors="pt").to("cuda")
+        inputs = self.audio_extractor(audio, sampling_rate=16000, return_tensors="pt").to(device)
         out = self.audio_model(
             **inputs
         )
