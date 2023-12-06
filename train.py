@@ -16,8 +16,6 @@ if __name__ == "__main__":
     epochs = 100
 
     wandb.login()
-    wandb.init(project="resonance")
-
     wandb.init(
         # set the wandb project where this run will be logged
         project="resonance",
@@ -32,11 +30,11 @@ if __name__ == "__main__":
     print("Loading data...")
     esc50_loader = loaders.ESC50Loader("./ESC-50-master/ESC-50-master/")
     esc50_loader = torch.utils.data.DataLoader(
-        esc50_loader, batch_size=batch_size, shuffle=True
+        esc50_loader, batch_size=batch_size, shuffle=True, num_workers=-1
     )
 
     print("Initializing model...")
-    model = clap.CLAP()
+    model = clap.CLAP(freeze_base=True)
     model = model.to("cuda")
     loss_fn = clap.ContrastiveLoss().to("cuda")
     optimizer = torch.optim.Adam(
@@ -71,6 +69,6 @@ if __name__ == "__main__":
             print(
                 f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_loader)} | Loss: {loss.item():.5f} | temperature: {loss_fn.t.item():.5f}"
             )
-            wandb.log({"loss": loss.item()})
+        wandb.log({"loss": loss.item()}, step=epoch)
 
         scheduler.step(loss)

@@ -6,7 +6,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class AudioEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, freeze_base=False):
         super().__init__()
 
         self.audio_extractor = AutoFeatureExtractor.from_pretrained(
@@ -18,6 +18,10 @@ class AudioEncoder(nn.Module):
 
         # Remove the classifier head
         self.audio_model.classifier = nn.Identity()
+
+        if freeze_base:
+            for param in self.audi_model.parameters():
+                param.requires_grad = False
 
         # Add custom FC layers
         self.fc1 = nn.Linear(768, 768)
