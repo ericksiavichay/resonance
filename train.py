@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-
+import os
 from models import clap
 from utils import loaders
 
@@ -70,5 +70,6 @@ if __name__ == "__main__":
                 f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_loader)} | Loss: {loss.item():.5f} | temperature: {loss_fn.t.item():.5f}"
             )
         wandb.log({"loss": loss.item()}, step=epoch)
+        wandb.save(os.path.join(wandb.run.dir, "checkpoint*"))
 
         scheduler.step(loss)
