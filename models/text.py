@@ -6,7 +6,7 @@ class TextEncoder(nn.Module):
     def __init__(self, freeze_base=False):
         super().__init__()
 
-        self.model_base = SentenceTransformer("BAAI/bge-large-en-v1.5")
+        self.model_base = SentenceTransformer("BAAI/bge-large-en-v1.5", device="cuda")
         self.tokenizer_base = self.model_base.tokenizer
         self.fc_1 = nn.Linear(self.model_base.get_sentence_embedding_dimension(), 1024)
         self.relu_1 = nn.ReLU()

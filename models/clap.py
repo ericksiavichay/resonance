@@ -32,8 +32,8 @@ class ContrastiveLoss(torch.nn.Module):
 class CLAP(nn.Module):
     def __init__(self):
         super(CLAP, self).__init__()
-        self.audio_encoder = AudioEncoder()
-        self.text_encoder = TextEncoder()
+        self.audio_encoder = AudioEncoder().to(device)
+        self.text_encoder = TextEncoder().to(device)
 
     def forward(self, audio, text):
         """

@@ -26,9 +26,7 @@ class AudioEncoder(nn.Module):
 
     def forward(self, audio):
         # Pass input through the audio model (excluding the classifier head)
-        inputs = self.audio_extractor(
-            audio, sampling_rate=16000, return_tensors="pt"
-        ).to(device)
+        inputs = self.audio_extractor(audio, sampling_rate=16000, return_tensors="pt")
         out = self.audio_model(**inputs)
 
         x = self.fc1(out.logits)
