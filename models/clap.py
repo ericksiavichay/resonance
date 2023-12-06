@@ -1,8 +1,8 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from audio import AudioEncoder
-from text import TextEncoder
+from models.audio import AudioEncoder
+from models.text import TextEncoder
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
