@@ -3,3 +3,5 @@ transformers
 sentence-transformers 
 librosa 
 matplotlib
+wandb
+pandas
