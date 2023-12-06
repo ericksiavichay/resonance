@@ -3,14 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from models import clap
-import utils
+from utils import loaders
 
 # import wandb
 # wandb.login()
 
 if __name__ == "__main__":
     # Load data
-    esc50_loader = utils.loaders.ESC50Loader("/ESC-50-master")
+    esc50_loader = loaders.ESC50Loader("/ESC-50-master")
     esc50_loader = torch.utils.data.DataLoader(
         esc50_loader, batch_size=16, shuffle=True
     )
