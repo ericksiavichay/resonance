@@ -2,26 +2,40 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from models import clap
+import utils
 
+# import wandb
+# wandb.login()
 
-class ContrastiveLoss(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.t = nn.Parameter(torch.tensor(0.7))
+if __name__ == "__main__":
+    # Load data
+    esc50_loader = utils.loaders.ESC50Loader("/ESC-50-master")
+    esc50_loader = torch.utils.data.DataLoader(
+        esc50_loader, batch_size=16, shuffle=True
+    )
 
-    def forward(self, audio_embeddings, text_embeddings):
-        # Normalize embeddings
-        audio_embeddings = F.normalize(audio_embeddings, p=2, dim=1)
-        text_embeddings = F.normalize(text_embeddings, p=2, dim=1)
+    # Load model
+    model = clap.CLAP()
+    model = model.to("cuda")
+    loss_fn = clap.ContrastiveLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, patience=5, verbose=True
+    )
 
-        similarity_matrix = torch.matmul(
-            audio_embeddings, text_embeddings.T
-        ) * torch.exp(self.t)
+    # Train
+    for epoch in range(100):
+        for batch in esc50_loader:
+            waveform, sample_rate, text_label = batch
+            waveform = waveform.to("cuda")
+            text_label = text_label.to("cuda")
 
-        num_batches = audio_embeddings.shape[0]
-        labels = torch.arange(num_batches).to(device)
-        loss_audio = F.cross_entropy(similarity_matrix, labels)
-        loss_text = F.cross_entropy(similarity_matrix.T, labels)
-        loss = (loss_audio + loss_text) / 2
-        return loss
+            audio_embeddings, text_embeddings = model(waveform, text_label)
+            loss = loss_fn(audio_embeddings, text_embeddings)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        scheduler.step(loss)
+        print("Epoch: {} | Loss: {:.5f}".format(epoch, loss.item()))
