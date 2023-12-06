@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
 from models import clap
 from utils import loaders
@@ -19,7 +20,7 @@ if __name__ == "__main__":
 
     wandb.init(
         # set the wandb project where this run will be logged
-        project="my-awesome-project",
+        project="resonance",
         # track hyperparameters and run metadata
         config={
             "learning_rate": learning_rate,
@@ -38,20 +39,25 @@ if __name__ == "__main__":
     model = clap.CLAP()
     model = model.to("cuda")
     loss_fn = clap.ContrastiveLoss().to("cuda")
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(
+        [{"params": model.parameters()}, {"params": loss_fn.t}], lr=learning_rate
+    )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, patience=5, verbose=True
     )
 
     # Train
+    use_amp = True
+    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
     print("Training...")
-    scaler = torch.cuda.amp.GradScaler()
     for epoch in range(epochs):
         for batch_index, batch in enumerate(esc50_loader, 1):
             waveforms, sample_rates, text_labels = batch
             waveforms = waveforms.numpy()
 
-            with torch.autocast(device_type="cuda", dtype=torch.float16):
+            with torch.autocast(
+                device_type="cuda", dtype=torch.float16, enabled=use_amp
+            ):
                 audio_embeddings, text_embeddings = model(waveforms, text_labels)
                 loss = loss_fn(audio_embeddings, text_embeddings)
 
