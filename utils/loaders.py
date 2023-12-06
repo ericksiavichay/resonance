@@ -4,6 +4,9 @@ import torch
 import torchaudio
 from torch.utils.data import Dataset
 
+# Enable multi-threading
+pd.options.mode.chained_assignment = "pyarrow"
+
 
 class ESC50Loader(Dataset):
     def __init__(self, path):
