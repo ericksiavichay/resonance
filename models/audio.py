@@ -4,12 +4,17 @@ from transformers import AutoFeatureExtractor, AutoModelForAudioClassification
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 class AudioEncoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.audio_extractor = AutoFeatureExtractor.from_pretrained("MIT/ast-finetuned-audioset-10-10-0.4593")
-        self.audio_model = AutoModelForAudioClassification.from_pretrained("MIT/ast-finetuned-audioset-10-10-0.4593").to("cuda")
+        self.audio_extractor = AutoFeatureExtractor.from_pretrained(
+            "MIT/ast-finetuned-audioset-10-10-0.4593"
+        )
+        self.audio_model = AutoModelForAudioClassification.from_pretrained(
+            "MIT/ast-finetuned-audioset-10-10-0.4593"
+        ).to(device)
 
         # Remove the classifier head
         self.audio_model.classifier = nn.Identity()
@@ -21,10 +26,10 @@ class AudioEncoder(nn.Module):
 
     def forward(self, audio):
         # Pass input through the audio model (excluding the classifier head)
-        inputs = self.audio_extractor(audio, sampling_rate=16000, return_tensors="pt").to(device)
-        out = self.audio_model(
-            **inputs
-        )
+        inputs = self.audio_extractor(
+            audio, sampling_rate=16000, return_tensors="pt"
+        ).to(device)
+        out = self.audio_model(**inputs)
 
         x = self.fc1(out.logits)
         x = self.relu1(x)
