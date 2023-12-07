@@ -14,6 +14,7 @@ if __name__ == "__main__":
     batch_size = 20
     learning_rate = 0.0001
     epochs = 100
+    frozen = True
 
     wandb.login()
     wandb.init(
@@ -25,16 +26,18 @@ if __name__ == "__main__":
             "architecture": "CLAP",
             "dataset": "ESC-50",
             "epochs": epochs,
+            "base_frozen": frozen,
+            "batch_size": batch_size,
         },
     )
     print("Loading data...")
     esc50_loader = loaders.ESC50Loader("./ESC-50-master/ESC-50-master/")
     esc50_loader = torch.utils.data.DataLoader(
-        esc50_loader, batch_size=batch_size, shuffle=True, num_workers=-1
+        esc50_loader, batch_size=batch_size, shuffle=True, num_workers=4
     )
 
     print("Initializing model...")
-    model = clap.CLAP(freeze_base=True)
+    model = clap.CLAP(freeze_base=frozen)
     model = model.to("cuda")
     loss_fn = clap.ContrastiveLoss().to("cuda")
     optimizer = torch.optim.Adam(
@@ -69,7 +72,8 @@ if __name__ == "__main__":
             print(
                 f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_loader)} | Loss: {loss.item():.5f} | temperature: {loss_fn.t.item():.5f}"
             )
-        wandb.log({"loss": loss.item()}, step=epoch)
-        wandb.save(os.path.join(wandb.run.dir, "checkpoint*"))
+            wandb.log({"loss": loss.item()})
+        torch.save(model.state_dict(), f"./model_frozen_{frozen}.h5")
+        wandb.save(f"./model_frozen_{frozen}.h5")
 
         scheduler.step(loss)

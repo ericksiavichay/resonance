@@ -1,4 +1,6 @@
 torch
+torchlibrosa
+h5py
 transformers 
 sentence-transformers 
 librosa 
