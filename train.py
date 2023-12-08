@@ -26,7 +26,7 @@ if __name__ == "__main__":
             "architecture": "CLAP",
             "dataset": "ESC-50",
             "epochs": epochs,
-            "base_frozen": frozen,
+            "text_encoder_base_frozen": frozen,
             "batch_size": batch_size,
         },
     )
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         [{"params": model.parameters()}, {"params": loss_fn.t}], lr=learning_rate
     )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, patience=5, verbose=True
+        optimizer, patience=2, verbose=True
     )
 
     # Train
@@ -73,7 +73,7 @@ if __name__ == "__main__":
                 f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_loader)} | Loss: {loss.item():.5f} | temperature: {loss_fn.t.item():.5f}"
             )
             wandb.log({"loss": loss.item()})
-        torch.save(model.state_dict(), f"./model_frozen_{frozen}.h5")
-        wandb.save(f"./model_frozen_{frozen}.h5")
+        torch.save(model.state_dict(), f"./model_frozen_{frozen}_epoch_{epoch}.h5")
+        wandb.save(f"./model_frozen_{frozen}_epoch_{epoch}.h5")
 
         scheduler.step(loss)

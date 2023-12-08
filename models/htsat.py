@@ -19,9 +19,9 @@ from torchlibrosa.augmentation import SpecAugmentation
 
 from itertools import repeat
 from typing import List
-from layers import PatchEmbed, Mlp, DropPath, trunc_normal_, to_2tuple
+from models.layers import PatchEmbed, Mlp, DropPath, trunc_normal_, to_2tuple
 from utils.utils import do_mixup, interpolate
-import models.config as config
+from models import config
 
 
 # below codes are based and referred from https://github.com/microsoft/Swin-Transformer

@@ -4,7 +4,7 @@ import torch
 from models.audio import AudioEncoder
 from models.htsat import HTSAT_Swin_Transformer as HTSATAudioEncoder
 from models.text import TextEncoder
-import config
+from models import config
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -23,8 +23,8 @@ class ContrastiveLoss(torch.nn.Module):
             audio_embeddings, text_embeddings.T
         ) * torch.exp(self.t)
 
-        num_batches = audio_embeddings.shape[0]
-        labels = torch.arange(num_batches).to(device)
+        batch_size = audio_embeddings.shape[0]
+        labels = torch.arange(batch_size).to(device)
         loss_audio = F.cross_entropy(similarity_matrix, labels)
         loss_text = F.cross_entropy(similarity_matrix.T, labels)
         loss = (loss_audio + loss_text) / 2
@@ -50,7 +50,7 @@ class ContrastiveLoss(torch.nn.Module):
 class CLAP(nn.Module):
     def __init__(self, freeze_base=False):
         super(CLAP, self).__init__()
-        self.audio_encoder = HTSATAudioEncoder(config.config).to(device)
+        self.audio_encoder = HTSATAudioEncoder(config=config).to(device)
         self.text_encoder = TextEncoder(freeze_base=freeze_base).to(device)
 
     def forward(self, audio, text):
