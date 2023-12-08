@@ -23,6 +23,7 @@ if __name__ == "__main__":
     epochs = 100
     frozen = True
     val_split = 0.2
+    use_amp = True
 
     wandb.login()
     wandb.init(
@@ -37,6 +38,7 @@ if __name__ == "__main__":
             "text_encoder_base_frozen": frozen,
             "batch_size": batch_size,
             "val_split": val_split,
+            "use_amp": use_amp,
         },
     )
     print("Loading data...")
@@ -61,15 +63,18 @@ if __name__ == "__main__":
     )
 
     # Train
-    use_amp = True
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
     print("Training...")
-    for epoch in range(epochs, 1):
+    for epoch in range(epochs):
         # Training mode
         model.train()
         for batch_index, batch in enumerate(esc50_train_loader, 1):
             waveforms, sample_rates, text_labels = batch
-            waveforms = waveforms.numpy()
+            waveforms = waveforms.to("cuda")
+
+            # if waveforms is a single vector, increase dims
+            if len(waveforms.shape) == 1:
+                waveforms = waveforms.unsqueeze(0)
 
             with torch.autocast(
                 device_type="cuda", dtype=torch.float16, enabled=use_amp
@@ -83,16 +88,20 @@ if __name__ == "__main__":
             # loss.backward()
             # optimizer.step()
             optimizer.zero_grad()
+
             print(
-                f"Epoch: {epoch} | Train Batch: {batch_index}/{len(esc50_train_loader)} | Train Loss: {loss.item():.5f} | temperature: {loss_fn.t.item():.5f}"
+                f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_train_loader)} | Loss: {loss.item():.5f} | temperature: {loss_fn.t.item():.5f}"
             )
-            wandb.log({"loss": loss.item()})
 
         # Evaluation mode
         model.eval()
         for batch_index, batch in enumerate(esc50_val_loader, 1):
             waveforms, sample_rates, text_labels = batch
-            waveforms = waveforms.numpy()
+            waveforms = waveforms.to("cuda")
+
+            # if waveforms is a single vector, increase dims
+            if len(waveforms.shape) == 1:
+                waveforms = waveforms.unsqueeze(0)
 
             with torch.no_grad():
                 audio_embeddings, text_embeddings = model(waveforms, text_labels)
@@ -101,8 +110,8 @@ if __name__ == "__main__":
             print(
                 f"Epoch: {epoch} | Val Batch: {batch_index}/{len(esc50_val_loader)} | Val Loss: {val_loss.item():.5f} | temperature: {loss_fn.t.item():.5f}"
             )
-            wandb.log({"val_loss": val_loss.item()})
 
+        wandb.log({"loss": loss.item(), "val_loss": val_loss.item()}, step=epoch)
         torch.save(model.state_dict(), f"./model_frozen_{frozen}_epoch_{epoch}.h5")
         wandb.save(f"./model_frozen_{frozen}_epoch_{epoch}.h5")
 
