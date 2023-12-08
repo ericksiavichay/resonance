@@ -10,7 +10,7 @@ import numpy as np
 
 
 class ESC50Loader(Dataset):
-    def __init__(self, path, subset="train", validation_split=0.2, random_state=42):
+    def __init__(self, path):
         """
         Args:
             path (string): Path to the folder containing the ESC-50 dataset
@@ -19,25 +19,15 @@ class ESC50Loader(Dataset):
         self.path = path
         self.meta_data = pd.read_csv(path + "meta/esc50.csv")
         self.meta_data["category"] = self.meta_data["category"].str.replace("_", " ")
-        self.audio_files = os.listdir(path + "audio")
-
-        # Split data
-        np.random.shuffle(self.audio_files, random_state=random_state)
-        total_samples = len(self.audio_files)
-        split_idx = int(np.floor(validation_split * total_samples))
-        if subset == "training":
-            self.audio_files = self.audio_files[split_idx:]
-        elif subset == "validation":
-            self.audio_files = self.audio_files[:split_idx]
 
     def __len__(self):
-        return len(self.audio_files)
+        return len(self.meta_data)
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        audio_name = os.path.join(self.path + "audio/", self.audio_files[idx])
+        audio_name = os.path.join(self.path + "audio/", self.meta_data["filename"][idx])
         waveform, sample_rate = torchaudio.load(audio_name)
         waveform = waveform.mean(dim=0, keepdim=True)
         waveform = waveform.squeeze(0)
