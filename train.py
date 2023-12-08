@@ -112,7 +112,10 @@ if __name__ == "__main__":
             )
 
         wandb.log({"loss": loss.item(), "val_loss": val_loss.item()}, step=epoch)
-        torch.save(model.state_dict(), f"./model_frozen_{frozen}_epoch_{epoch}.h5")
-        wandb.save(f"./model_frozen_{frozen}_epoch_{epoch}.h5")
+
+        # only save every 10 epochs
+        if epoch % 10 == 0:
+            torch.save(model.state_dict(), f"./model_frozen_{frozen}_epoch_{epoch}.h5")
+            wandb.save(f"./model_frozen_{frozen}_epoch_{epoch}.h5")
 
         scheduler.step(loss)
