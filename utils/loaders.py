@@ -9,6 +9,16 @@ import numpy as np
 # pd.options.mode.chained_assignment = "pyarrow"
 
 
+# class MusicCapsLoader(Dataset):
+#     def __init__(self, path="./musiccaps-public.csv"):
+#         """
+#         Args:
+#             path (string): Path to the folder containing the MusicCaps dataset
+#         """
+
+#         self.path = path
+
+
 class ESC50Loader(Dataset):
     def __init__(self, path):
         """
