@@ -9,9 +9,9 @@ class TextEncoder(nn.Module):
 
         self.model_base = SentenceTransformer("BAAI/bge-large-en-v1.5", device="cuda")
         self.tokenizer_base = self.model_base.tokenizer
-        self.fc_1 = nn.Linear(self.model_base.get_sentence_embedding_dimension(), 1024)
+        self.fc_1 = nn.Linear(self.model_base.get_sentence_embedding_dimension(), 768)
         self.relu_1 = nn.ReLU()
-        self.fc_2 = nn.Linear(1024, 768)
+        self.fc_2 = nn.Linear(768, 768)
 
         if freeze_base:
             for param in self.model_base.parameters():
