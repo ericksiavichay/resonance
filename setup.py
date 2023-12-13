@@ -1,11 +1,13 @@
 import os
-import pandas as pd
-from utils.youtube import download_video_as_wav
 
 """Data URls"""
 ESC50_URL = "https://github.com/karoldvl/ESC-50/archive/master.zip"
 
 if __name__ == "__main__":
+    print("\nInstalling requirements...")
+    os.system("pip install -r requirements.txt")
+    print("Requirements installed.\n")
+
     if not os.path.exists("./ESC-50-master"):
         response = input(
             "Path to ESC-50 not found. Would you like to download ESC-50? (y/[n])"
@@ -22,9 +24,13 @@ if __name__ == "__main__":
             "Path to MusicCaps not found. Would you like to download MusicCaps? (y/[n])"
         )
         if response == "y":
+            from utils.youtube import download_video_as_wav
+
             print("Downloading MusicCaps...")
             if not os.path.exists("MusicCaps"):
                 os.mkdir("MusicCaps")
+            import pandas as pd
+
             music_csv = pd.read_csv("utils/musiccaps-public.csv")
             music_csv.apply(
                 lambda row: download_video_as_wav(
@@ -33,7 +39,3 @@ if __name__ == "__main__":
                 axis=1,
             )
             print("Downloaded MusicCaps.")
-
-    print("\nInstalling requirements...")
-    os.system("pip install -r requirements.txt")
-    print("Requirements installed.\n")
