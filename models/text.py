@@ -1,5 +1,6 @@
 from sentence_transformers import SentenceTransformer
 from torch import nn
+import torch.nn.functional as F
 
 
 class TextEncoder(nn.Module):
@@ -23,4 +24,13 @@ class TextEncoder(nn.Module):
         out = self.model_base(tokenizer_encoding).sentence_embedding
         out = self.relu_1(self.fc_1(out))
         out = self.fc_2(out)
+        return out
+
+    def embed(self, text):
+        tokenizer_encoding = self.tokenizer_base(
+            text, return_tensors="pt", padding=True, truncation=True
+        ).to("cuda")
+        out = self.model_base(tokenizer_encoding).sentence_embedding
+        out = self.fc_1(out)
+        out = F.normalize(out, p=2, dim=1)
         return out
