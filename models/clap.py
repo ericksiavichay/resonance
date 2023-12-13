@@ -10,9 +10,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class ContrastiveLoss(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, init_temp=0.07):
         super().__init__()
-        self.t = nn.Parameter(torch.tensor(0.07))
+        self.init_temp = init_temp
+        self.t = nn.Parameter(torch.tensor(self.init_temp))
 
     def forward(self, audio_embeddings, text_embeddings):
         # Normalize embeddings

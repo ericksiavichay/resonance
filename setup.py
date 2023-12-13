@@ -1,5 +1,4 @@
 import os
-from utils.youtube import download_video_as_wav
 
 """Data URls"""
 ESC50_URL = "https://github.com/karoldvl/ESC-50/archive/master.zip"
@@ -25,6 +24,8 @@ if __name__ == "__main__":
             "Path to MusicCaps not found. Would you like to download MusicCaps? (y/[n])"
         )
         if response == "y":
+            from utils.youtube import download_video_as_wav
+
             print("Downloading MusicCaps...")
             if not os.path.exists("MusicCaps"):
                 os.mkdir("MusicCaps")

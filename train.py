@@ -18,12 +18,13 @@ def split_data(data, val_split=0.2):
 
 if __name__ == "__main__":
     # Hyperparameters
-    batch_size = 20
+    batch_size = 126
     learning_rate = 0.0001
-    epochs = 100
+    epochs = 20
     frozen = True
-    val_split = 0.2
-    use_amp = True
+    val_split = 0.3
+    use_amp = False
+    init_temp = 0.5
 
     wandb.login()
     wandb.init(
@@ -39,6 +40,7 @@ if __name__ == "__main__":
             "batch_size": batch_size,
             "val_split": val_split,
             "use_amp": use_amp,
+            "init_temp": init_temp,
         },
     )
     print("Loading data...")
@@ -48,13 +50,13 @@ if __name__ == "__main__":
         esc50_train, batch_size=batch_size, shuffle=True, num_workers=0
     )
     esc50_val_loader = torch.utils.data.DataLoader(
-        esc50_val, batch_size=batch_size * 3, shuffle=True, num_workers=0
+        esc50_val, batch_size=batch_size, shuffle=False, num_workers=0
     )
 
     print("Initializing model...")
     model = clap.CLAP(freeze_base=frozen)
     model = model.to("cuda")
-    loss_fn = clap.ContrastiveLoss().to("cuda")
+    loss_fn = clap.ContrastiveLoss(init_temp=init_temp).to("cuda")
     optimizer = torch.optim.Adam(
         [{"params": model.parameters()}, {"params": loss_fn.t}], lr=learning_rate
     )
@@ -65,9 +67,10 @@ if __name__ == "__main__":
     # Train
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
     print("Training...")
-    for epoch in range(epochs):
+    for epoch in range(1, epochs + 1):
         # Training mode
         model.train()
+        train_loss = 0.0
         for batch_index, batch in enumerate(esc50_train_loader, 1):
             waveforms, sample_rates, text_labels = batch
             waveforms = waveforms.to("cuda")
@@ -76,6 +79,7 @@ if __name__ == "__main__":
             if len(waveforms.shape) == 1:
                 waveforms = waveforms.unsqueeze(0)
 
+            optimizer.zero_grad()
             with torch.autocast(
                 device_type="cuda", dtype=torch.float16, enabled=use_amp
             ):
@@ -87,14 +91,17 @@ if __name__ == "__main__":
             scaler.update()
             # loss.backward()
             # optimizer.step()
-            optimizer.zero_grad()
-
+            train_loss += loss.item()
             print(
-                f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_train_loader)} | Loss: {loss.item():.5f} | temperature: {loss_fn.t.item():.5f}"
+                f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_train_loader)} | temperature: {loss_fn.t.item():.5f}"
             )
+
+        avg_train_loss = train_loss / len(esc50_train_loader)
+        print(f"Epoch: {epoch} | Train Loss: {avg_train_loss:.5f}")
 
         # Evaluation mode
         model.eval()
+        avg_val_loss = 0.0
         for batch_index, batch in enumerate(esc50_val_loader, 1):
             waveforms, sample_rates, text_labels = batch
             waveforms = waveforms.to("cuda")
@@ -107,15 +114,20 @@ if __name__ == "__main__":
                 audio_embeddings, text_embeddings = model(waveforms, text_labels)
                 val_loss = loss_fn(audio_embeddings, text_embeddings)
 
+            avg_val_loss += val_loss.item()
+
             print(
-                f"Epoch: {epoch} | Val Batch: {batch_index}/{len(esc50_val_loader)} | Val Loss: {val_loss.item():.5f} | temperature: {loss_fn.t.item():.5f}"
+                f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_train_loader)} | temperature: {loss_fn.t.item():.5f}"
             )
 
-        wandb.log({"loss": loss.item(), "val_loss": val_loss.item()}, step=epoch)
+        avg_val_loss = avg_val_loss / len(esc50_val_loader)
+        print(f"Epoch: {epoch} | Val Loss: {avg_val_loss:.5f}")
+
+        wandb.log({"train_loss": avg_train_loss, "val_loss": avg_val_loss}, step=epoch)
 
         # only save every 10 epochs
         if epoch % 10 == 0:
             torch.save(model.state_dict(), f"./model_frozen_{frozen}_epoch_{epoch}.h5")
             wandb.save(f"./model_frozen_{frozen}_epoch_{epoch}.h5")
 
-        scheduler.step(loss)
+        scheduler.step(avg_val_loss)
