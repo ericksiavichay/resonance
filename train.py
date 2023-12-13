@@ -5,6 +5,7 @@ import numpy as np
 import os
 from models import clap
 from utils import loaders
+from utils.visualization import generate_umap
 from torch.utils.data import random_split
 
 import wandb
@@ -72,7 +73,7 @@ if __name__ == "__main__":
         model.train()
         train_loss = 0.0
         for batch_index, batch in enumerate(esc50_train_loader, 1):
-            waveforms, sample_rates, text_labels = batch
+            waveforms, sample_rates, text_labels, _ = batch
             waveforms = waveforms.to("cuda")
 
             # if waveforms is a single vector, increase dims
@@ -103,7 +104,7 @@ if __name__ == "__main__":
         model.eval()
         avg_val_loss = 0.0
         for batch_index, batch in enumerate(esc50_val_loader, 1):
-            waveforms, sample_rates, text_labels = batch
+            waveforms, sample_rates, text_labels, audio_ids = batch
             waveforms = waveforms.to("cuda")
 
             # if waveforms is a single vector, increase dims
@@ -119,6 +120,15 @@ if __name__ == "__main__":
             print(
                 f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_train_loader)} | temperature: {loss_fn.t.item():.5f}"
             )
+
+            if batch_index == 1:
+                # Generate UMAP visualization
+                generate_umap(
+                    audio_embeddings.cpu().numpy(),
+                    text_embeddings.cpu().numpy(),
+                    text_labels,
+                    audio_ids,
+                )
 
         avg_val_loss = avg_val_loss / len(esc50_val_loader)
         print(f"Epoch: {epoch} | Val Loss: {avg_val_loss:.5f}")
