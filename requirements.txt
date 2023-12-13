@@ -10,3 +10,5 @@ pandas
 pytube
 ffmpeg
 pydub
+plotly
+umap-learn

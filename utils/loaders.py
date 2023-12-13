@@ -43,8 +43,9 @@ class ESC50Loader(Dataset):
         waveform = waveform.mean(dim=0, keepdim=True)  # takes care of stereo sound
         waveform = torch.squeeze(waveform, dim=0)
         text_label = self.meta_data["category"][idx]
+        audio_id = self.meta_data["filename"][idx].split(".")[0]
 
-        return waveform, sample_rate, text_label
+        return waveform, sample_rate, text_label, audio_id
 
 
 class MusicCapsLoader(Dataset):
