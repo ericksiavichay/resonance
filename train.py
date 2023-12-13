@@ -123,11 +123,17 @@ if __name__ == "__main__":
 
             if batch_index == 1:
                 # Generate UMAP visualization
-                generate_umap(
+                fig = generate_umap(
                     audio_embeddings.cpu().numpy(),
                     text_embeddings.cpu().numpy(),
                     text_labels,
                     audio_ids,
+                )
+
+                # Log the figure to wandb
+                wandb.log(
+                    {"embeddings_plot": wandb.Html(fig.to_html(full_html=False))},
+                    step=epoch,
                 )
 
         avg_val_loss = avg_val_loss / len(esc50_val_loader)

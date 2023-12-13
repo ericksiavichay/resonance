@@ -41,3 +41,5 @@ def generate_umap(audio_embeddings, text_embeddings, text_labels, audio_ids):
         xaxis_title="Component 1",
         yaxis_title="Component 2",
     )
+
+    return fig
