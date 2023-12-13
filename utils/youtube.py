@@ -20,7 +20,7 @@ def cut_audio(input_path, output_path, start_sec, end_sec):
     clip.export(output_path, format="wav")
 
 
-def download_video_as_wav(yt_id, index, start_sec, end_sec, output_dir):
+def download_video_as_wav(yt_id, index, start_sec, end_sec, output_dir, verbose=True):
     """
     Download a YouTube video as a WAV file.
 
@@ -30,6 +30,10 @@ def download_video_as_wav(yt_id, index, start_sec, end_sec, output_dir):
         end_sec (float): End time in seconds.
         output_dir (str): Directory to save the WAV file.
     """
+    if verbose:
+        print("Downloading audio: ", yt_id)
+        print("Index: ", index)
+        print("\n")
     yt = YouTube(f"https://www.youtube.com/watch?v={yt_id}", use_oauth=True)
     yt.streams.get_audio_only(subtype="mp4").download(
         output_path=output_dir,
