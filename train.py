@@ -118,10 +118,13 @@ if __name__ == "__main__":
             avg_val_loss += val_loss.item()
 
             print(
-                f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_train_loader)} | temperature: {loss_fn.t.item():.5f}"
+                f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_val_loader)} | temperature: {loss_fn.t.item():.5f}"
             )
 
             if batch_index == 1:
+                # Normalize embeddings before UMAP
+                audio_embeddings = F.normalize(audio_embeddings, p=2, dim=1)
+                text_embeddings = F.normalize(text_embeddings, p=2, dim=1)
                 # Generate UMAP visualization
                 fig = generate_umap(
                     audio_embeddings.cpu().numpy(),
