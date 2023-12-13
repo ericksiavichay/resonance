@@ -17,7 +17,7 @@ def generate_umap(audio_embeddings, text_embeddings, text_labels, audio_ids):
         mode="markers",
         marker=dict(color="blue"),
         name="Audio Embeddings",
-        text=audio_ids,  # Audio IDs for hover
+        text=audio_hover_over,  # Audio IDs for hover
         hoverinfo="text",
     )
 
