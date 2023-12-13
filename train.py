@@ -122,9 +122,11 @@ if __name__ == "__main__":
             )
 
             if batch_index == 1:
-                # Normalize embeddings before UMAP
+                with torch.no_grad():
+                    actual_text_embeddings = model.text_encoder.embed(text_labels)
+
                 audio_embeddings = F.normalize(audio_embeddings, p=2, dim=1)
-                text_embeddings = F.normalize(text_embeddings, p=2, dim=1)
+                text_embeddings = F.normalize(actual_text_embeddings, p=2, dim=1)
                 # Generate UMAP visualization
                 fig = generate_umap(
                     audio_embeddings.cpu().numpy(),
