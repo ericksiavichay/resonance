@@ -19,23 +19,23 @@ if __name__ == "__main__":
             os.system("rm master.zip")
             print("Downloaded ESC-50.")
 
-    if not os.path.exists("./MusicCaps") or len(os.listdir("./MusicCaps")) == 0:
-        response = input(
-            "Path to MusicCaps not found. Would you like to download MusicCaps? (y/[n])"
-        )
-        if response == "y":
-            from utils.youtube import download_video_as_wav
+    # if not os.path.exists("./MusicCaps") or len(os.listdir("./MusicCaps")) == 0:
+    #     response = input(
+    #         "Path to MusicCaps not found. Would you like to download MusicCaps? (y/[n])"
+    #     )
+    #     if response == "y":
+    #         from utils.youtube import download_video_as_wav
 
-            print("Downloading MusicCaps...")
-            if not os.path.exists("MusicCaps"):
-                os.mkdir("MusicCaps")
-            import pandas as pd
+    #         print("Downloading MusicCaps...")
+    #         if not os.path.exists("MusicCaps"):
+    #             os.mkdir("MusicCaps")
+    #         import pandas as pd
 
-            music_csv = pd.read_csv("utils/musiccaps-public.csv")
-            music_csv.apply(
-                lambda row: download_video_as_wav(
-                    row["ytid"], row.name, row["start_s"], row["end_s"], "MusicCaps"
-                ),
-                axis=1,
-            )
-            print("Downloaded MusicCaps.")
+    #         music_csv = pd.read_csv("utils/musiccaps-public.csv")
+    #         music_csv.apply(
+    #             lambda row: download_video_as_wav(
+    #                 row["ytid"], row.name, row["start_s"], row["end_s"], "MusicCaps"
+    #             ),
+    #             axis=1,
+    #         )
+    #         print("Downloaded MusicCaps.")
