@@ -94,11 +94,11 @@ if __name__ == "__main__":
             # optimizer.step()
             train_loss += loss.item()
             print(
-                f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_train_loader)} | temperature: {loss_fn.t.item():.5f}"
+                f"Train | Epoch: {epoch} | Batch: {batch_index}/{len(esc50_train_loader)} | temperature: {loss_fn.t.item():.5f}"
             )
 
         avg_train_loss = train_loss / len(esc50_train_loader)
-        print(f"Epoch: {epoch} | Train Loss: {avg_train_loss:.5f}")
+        print(f"Train | Epoch: {epoch} | Train Loss: {avg_train_loss:.5f}")
 
         # Evaluation mode
         model.eval()
@@ -118,7 +118,7 @@ if __name__ == "__main__":
             avg_val_loss += val_loss.item()
 
             print(
-                f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_val_loader)} | temperature: {loss_fn.t.item():.5f}"
+                f"Val | Epoch: {epoch} | Batch: {batch_index}/{len(esc50_val_loader)} | temperature: {loss_fn.t.item():.5f}"
             )
 
             if batch_index == 1:
@@ -142,7 +142,7 @@ if __name__ == "__main__":
                 )
 
         avg_val_loss = avg_val_loss / len(esc50_val_loader)
-        print(f"Epoch: {epoch} | Val Loss: {avg_val_loss:.5f}")
+        print(f"Val | Epoch: {epoch} | Val Loss: {avg_val_loss:.5f}")
 
         wandb.log({"train_loss": avg_train_loss, "val_loss": avg_val_loss}, step=epoch)
 
