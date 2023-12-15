@@ -12,3 +12,4 @@ ffmpeg
 pydub
 plotly
 umap-learn
+joblib
