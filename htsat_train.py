@@ -12,8 +12,7 @@ from models import clap
 from utils.visualization import generate_umap
 from utils.transforms import AudioAugmentations
 import torch.nn.functional as F
-import multiprocessing
-from functools import partial
+from joblib import Parallel, delayed
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -39,13 +38,6 @@ def process_waveform(waveform, sample_rate):
     augmentor = AudioAugmentations(sample_rate=sample_rate)
     aug_1, aug_2 = augmentor.random_transforms(waveform)
     return fix_length(aug_1).unsqueeze(0), fix_length(aug_2).unsqueeze(0)
-
-
-def parallel_process_waveforms(waveforms, sample_rates):
-    # Create a partial function with the fixed sample_rate argument
-    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
-        results = pool.starmap(process_waveform, zip(waveforms, sample_rates))
-    return results
 
 
 def split_data(data, val_split=0.2):
@@ -116,7 +108,10 @@ if __name__ == "__main__":
                 waveforms = waveforms.unsqueeze(0)
 
             # augmentations
-            processed_waveforms = parallel_process_waveforms(waveforms, sample_rates)
+            processed_waveforms = Parallel(n_jobs=-1)(
+                delayed(process_waveform)(waveform, sample_rate)
+                for waveform, sample_rate in zip(waveforms, sample_rates)
+            )
             augmentations_1, augmentations_2 = zip(*processed_waveforms)
 
             augmentations_1_torch = torch.cat(augmentations_1, dim=0).to(device)
@@ -154,7 +149,10 @@ if __name__ == "__main__":
                 waveforms = waveforms.unsqueeze(0)
 
             # augmentations
-            processed_waveforms = parallel_process_waveforms(waveforms, sample_rates)
+            processed_waveforms = Parallel(n_jobs=-1)(
+                delayed(process_waveform)(waveform, sample_rate)
+                for waveform, sample_rate in zip(waveforms, sample_rates)
+            )
             augmentations_1, augmentations_2 = zip(*processed_waveforms)
 
             augmentations_1_torch = torch.cat(augmentations_1, dim=0).to(device)
