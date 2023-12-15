@@ -171,7 +171,9 @@ if __name__ == "__main__":
 
             if batch_index == 1:
                 with torch.no_grad():
-                    audio_embeddings = audio_encoder(waveforms)["latent_output"]
+                    audio_embeddings = audio_encoder(waveforms.to(device))[
+                        "latent_output"
+                    ]
                     audio_embeddings_normalized = F.normalize(
                         audio_embeddings, p=2, dim=1
                     )
