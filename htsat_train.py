@@ -12,8 +12,40 @@ from models import clap
 from utils.visualization import generate_umap
 from utils.transforms import AudioAugmentations
 import torch.nn.functional as F
+import multiprocessing
+from functools import partial
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+MAX_LENGTH = 220500
+
+
+def fix_length(waveform, target_length=MAX_LENGTH):
+    """
+    Adjust the waveform to a target length by either padding with zeros or truncating.
+    """
+    current_length = len(waveform)
+    if current_length > target_length:
+        # Truncate the waveform
+        waveform = waveform[:target_length]
+    elif current_length < target_length:
+        # Pad the waveform with zeros
+        padding = target_length - current_length
+        waveform = F.pad(waveform, (0, padding))
+    return waveform
+
+
+def process_waveform(waveform, sample_rate):
+    augmentor = AudioAugmentations(sample_rate=sample_rate)
+    aug_1, aug_2 = augmentor.random_transforms(waveform)
+    return fix_length(aug_1).unsqueeze(0), fix_length(aug_2).unsqueeze(0)
+
+
+def parallel_process_waveforms(waveforms, sample_rates):
+    # Create a partial function with the fixed sample_rate argument
+    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+        results = pool.starmap(process_waveform, zip(waveforms, sample_rates))
+    return results
 
 
 def split_data(data, val_split=0.2):
@@ -25,11 +57,11 @@ def split_data(data, val_split=0.2):
 if __name__ == "__main__":
     # Hyperparameters
     batch_size = 64
-    learning_rate = 0.0001
+    learning_rate = 0.01
     epochs = 20
     frozen = False
     val_split = 0.1
-    init_temp = 0.5
+    init_temp = 2.1
     use_amp = False
 
     wandb.login()
@@ -43,7 +75,6 @@ if __name__ == "__main__":
             "architecture": "HTSAT",
             "dataset": "ESC-50",
             "epochs": epochs,
-            "text_encoder_base_frozen": frozen,
             "batch_size": batch_size,
             "val_split": val_split,
             "init_temp": init_temp,
@@ -85,17 +116,11 @@ if __name__ == "__main__":
                 waveforms = waveforms.unsqueeze(0)
 
             # augmentations
-            augmentations_1 = []
-            augmentations_2 = []
-            for i in range(len(waveforms)):
-                waveform = waveforms[i]
-                augmentor = AudioAugmentations(sample_rate=sample_rates[i])
-                aug_1, aug_2 = augmentor.random_transforms(waveform)
-                augmentations_1.append(aug_1)
-                augmentations_2.append(aug_2)
+            processed_waveforms = parallel_process_waveforms(waveforms, sample_rates)
+            augmentations_1, augmentations_2 = zip(*processed_waveforms)
 
-            augmentations_1_torch = torch.vstack(augmentations_1).to(device)
-            augmentations_2_torch = torch.vstack(augmentations_2).to(device)
+            augmentations_1_torch = torch.cat(augmentations_1, dim=0).to(device)
+            augmentations_2_torch = torch.cat(augmentations_2, dim=0).to(device)
 
             optimizer.zero_grad()
             with torch.autocast(
@@ -112,11 +137,11 @@ if __name__ == "__main__":
             # optimizer.step()
             train_loss += loss.item()
             print(
-                f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_train_loader)} | temperature: {loss_fn.t.item():.5f}"
+                f"Train | Epoch: {epoch} | Batch: {batch_index}/{len(esc50_train_loader)} | temperature: {loss_fn.t.item():.5f}"
             )
 
         avg_train_loss = train_loss / len(esc50_train_loader)
-        print(f"Epoch: {epoch} | Train Loss: {avg_train_loss:.5f}")
+        print(f"Train | Epoch: {epoch} | Train Loss: {avg_train_loss:.5f}")
 
         # Evaluation mode
         audio_encoder.eval()
@@ -129,36 +154,33 @@ if __name__ == "__main__":
                 waveforms = waveforms.unsqueeze(0)
 
             # augmentations
-            augmentations_1 = []
-            augmentations_2 = []
-            for i in range(len(waveforms)):
-                waveform = waveforms[i]
-                augmentor = AudioAugmentations(sample_rate=sample_rates[i])
-                aug_1, aug_2 = augmentor.random_transforms(waveform)
-                augmentations_1.append(aug_1)
-                augmentations_2.append(aug_2)
+            processed_waveforms = parallel_process_waveforms(waveforms, sample_rates)
+            augmentations_1, augmentations_2 = zip(*processed_waveforms)
 
-            augmentations_1_torch = torch.vstack(augmentations_1).to(device)
-            augmentations_2_torch = torch.vstack(augmentations_2).to(device)
+            augmentations_1_torch = torch.cat(augmentations_1, dim=0).to(device)
+            augmentations_2_torch = torch.cat(augmentations_2, dim=0).to(device)
 
             with torch.no_grad():
-                aug_1_embeddings = audio_encoder(augmentations_1_torch)["latent_outpu"]
+                aug_1_embeddings = audio_encoder(augmentations_1_torch)["latent_output"]
                 aug_2_embeddings = audio_encoder(augmentations_2_torch)["latent_output"]
                 val_loss = loss_fn(aug_1_embeddings, aug_2_embeddings)
 
             avg_val_loss += val_loss.item()
 
             print(
-                f"Epoch: {epoch} | Batch: {batch_index}/{len(esc50_val_loader)} | temperature: {loss_fn.t.item():.5f}"
+                f"Val | Epoch: {epoch} | Batch: {batch_index}/{len(esc50_val_loader)} | temperature: {loss_fn.t.item():.5f}"
             )
 
             if batch_index == 1:
-                aug_1_embeddings = F.normalize(aug_1_embeddings, p=2, dim=1)
-                aug_2_embeddings = F.normalize(aug_2_embeddings, p=2, dim=1)
+                with torch.no_grad():
+                    audio_embeddings = audio_encoder(waveforms)["latent_output"]
+                    audio_embeddings_normalized = F.normalize(
+                        audio_embeddings, p=2, dim=1
+                    )
                 # Generate UMAP visualization
                 fig = generate_umap(
-                    aug_1_embeddings.cpu().numpy(),
-                    aug_2_embeddings.cpu().numpy(),
+                    audio_embeddings_normalized.cpu().numpy(),
+                    None,
                     text_labels,
                     audio_ids,
                 )
@@ -170,15 +192,13 @@ if __name__ == "__main__":
                 )
 
         avg_val_loss = avg_val_loss / len(esc50_val_loader)
-        print(f"Epoch: {epoch} | Val Loss: {avg_val_loss:.5f}")
+        print(f"Val | Epoch: {epoch} | Val Loss: {avg_val_loss:.5f}")
 
         wandb.log({"train_loss": avg_train_loss, "val_loss": avg_val_loss}, step=epoch)
 
         # only save every 10 epochs
         if epoch % 10 == 0:
-            torch.save(
-                audio_encoder.state_dict(), f"./model_frozen_{frozen}_epoch_{epoch}.h5"
-            )
-            wandb.save(f"./model_frozen_{frozen}_epoch_{epoch}.h5")
+            torch.save(audio_encoder.state_dict(), f"./audio_epoch_{epoch}.h5")
+            # wandb.save(f"./audio_epoch_{epoch}.h5")
 
         scheduler.step(avg_val_loss)
