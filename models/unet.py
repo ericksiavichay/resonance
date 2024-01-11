@@ -9,10 +9,60 @@ Based on: https://nn.labml.ai/diffusion/stable_diffusion/model/unet.html
 
 """
 
-
-
 import torch.nn as nn
+import torch.nn.functional as F
+import torch
+from models.attention import SpatialTransformer
 
+class ResBlock(nn.Module):
+    def __init__(self, channels, d_t_embed, *, out_channels=None):
+        super().__init__()
+
+        if out_channels is None:
+            out_channels = channels
+
+        self.in_layers = nn.Sequential(
+            normalization(channels),
+            nn.SiLU(),
+            nn.Conv2d(channels, out_channels, 3, padding=1)
+        )
+
+        self.emb_layers = nn.Sequential(
+            nn.SiLU(),
+            nn.Linear(d_t_embed, out_channels)
+        )
+
+        self.out_layers = nn.Sequential(
+            normalization(out_channels),
+            nn.SiLU(),
+            # nn.Dropout(0.),
+            nn.Conv2d(out_channels, out_channels, 3, padding=1)
+        )
+
+        if out_channels == channels:
+            self.skip_connection = nn.Identity()
+        else:
+            self.skip_connection = nn.Conv2d(channels, out_channels, 1)
+
+    def forward(self, x, t_embed):
+        h = self.in_layers(x)
+        t_embed = self.emb_layers(t_embed).type(h.dtype)
+        h = h + t_embed[:, :, None, None]
+        h = self.out_layers(h)
+
+        return self.skip_connection(x) + h
+
+class TimestepEmbedSequential(nn.Sequential):
+    def forward(self, x, t_embed, cond=None):
+        for layer in self:
+            if isinstance(layer, ResBlock):
+                x = layer(x, t_embed)
+            elif isinstance(layer, SpatialTransformer):
+                x = layer(x, cond)
+            else:
+                x = layer(x)
+        return x
+    
 class UNet(nn.Module):
     def __init__(
         self,
@@ -27,10 +77,40 @@ class UNet(nn.Module):
         tf_layers: int = 1,
         d_cond: int = 768
     ):
-    """
-    in_
-    """
-    pass
+        """
+        Args
+        in_channels: the dim of the channels in the input
+        out_channels: the dim of the channels in the output
+        channels: the base dimmension c_u as shown in AudioLDM
+        n_res_blocks: number of residual blocks at each level
+        attention_levels: levels at which attention should be performed
+        channel_multipliers: the coefficient of c_u at each decoder level as shown in AudioLDM
+        n_heads: the number of attention heads 
+        tf_layers: the number of transformer layers in the transformers
+        d_cond: the dimmension of the conditional vector (text embedding)
+        """
+        super().__init__()
+        self.channels = channels
+
+        levels = len(channel_multipliers)
+
+        d_time_embed = channels * 4
+        self.time_embed = nn.Sequential(
+            nn.Linear(channels, d_time_embed),
+            nn.SiLU(),
+            nn.Linear(d_time_embed, d_time_embed)
+        )
+
+        self.input_blocks = nn.ModuleList()
+
+        self.input_blocks.append(TimestepEmbedSequential(nn.Conv2d(in_channels, channels, 3, padding=1)))
+        
+        input_block_channels = [channels]
+        channels_list = [channels * m for m in channel_multipliers]
+        
+        for i in range(levels):
+            for _ in range(n_res_blocks):
+
     
 
 
