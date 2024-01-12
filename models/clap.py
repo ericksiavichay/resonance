@@ -57,6 +57,7 @@ class CLAP(nn.Module):
     def forward(self, audio, text):
         """
         Audio and text are batched.
+        embeddings are d = 768
         """
         audio_embeddings = self.audio_encoder(audio)["latent_output"]
         text_embeddings = self.text_encoder(text)
