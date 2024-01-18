@@ -71,15 +71,14 @@ class TransformerBlock(nn.Module):
         self,
         d_model: int,
         n_heads: int,
-        d_head: int,
         d_cond: int,
     ):
         super().__init__()
 
-        self.attn1 = CrossAttention(d_model, d_model, n_heads, d_head)
+        self.attn1 = CrossAttention(d_model, d_model, n_heads)
         self.norm1 = nn.LayerNorm(d_model)
 
-        self.attn2 = CrossAttention(d_model, d_cond, n_heads, d_head)
+        self.attn2 = CrossAttention(d_model, d_cond, n_heads)
         self.norm2 = nn.LayerNorm(d_model)
 
         self.ff = FeedForward(d_model)
@@ -112,7 +111,7 @@ class SpatialTransformer(nn.Module):
 
         self.transformer_blocks = nn.ModuleList(
             [
-                TransformerBlock(channels, n_heads, channels // n_heads, d_cond=d_cond)
+                TransformerBlock(channels, n_heads, d_cond=d_cond)
                 for _ in range(n_layers)
             ]
         )
