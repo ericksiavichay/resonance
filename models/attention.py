@@ -12,70 +12,34 @@ class CrossAttention(nn.Module):
         d_model: int,
         d_cond: int,
         n_heads: int,
-        d_head: int,
-        is_inplace: bool = True,
-        use_flash_attention: bool = True,
+        # d_head: int,
     ):
         super().__init__()
 
-        self.is_inplace = is_inplace
+        self.d_model = d_model
+        self.d_cond = d_cond
         self.n_heads = n_heads
-        self.d_head = d_head
-        self.scale = d_head**-0.5
 
-        d_attn = d_head * n_heads
-        self.to_q = nn.Linear(d_model, d_attn, bias=False)
-        self.to_k = nn.Linear(d_cond, d_attn, bias=False)
-        self.to_v = nn.Linear(d_cond, d_attn, bias=False)
+        # Multihead attention layer
+        self.multihead_attn = nn.MultiheadAttention(
+            embed_dim=d_model, num_heads=n_heads, batch_first=True
+        )
 
-        self.to_out = nn.Sequential(nn.Linear(d_attn, d_model))
+        # Projection for conditional input
+        self.cond_proj = nn.Linear(d_cond, d_model)
 
     def forward(self, x: torch.Tensor, cond: Optional[torch.Tensor] = None):
-        """
-        Function assumes a condition. If no conditional vector, set the conditional equal to x
-        """
+        if cond is not None:
+            # Project cond to match d_model, and repeat it to match x's sequence length
+            cond = self.cond_proj(cond)
+            cond = cond.repeat(1, x.size(1), 1)  # Repeat along sequence length
 
-        if cond is None:
-            cond = x
-
-        q = self.to_q(x)
-        k = self.to_k(cond)
-        v = self.to_v(cond)
-
-        return self.normal_attention(q, k, v)
-
-    def normal_attention(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor):
-        # Reshaping tensors for multi-headed attention
-        q = q.view(*q.shape[:2], self.n_heads, -1)
-        k = k.view(*k.shape[:2], self.n_heads, -1)
-        v = v.view(*v.shape[:2], self.n_heads, -1)
-
-        # Transpose k for matrix multiplication: [batch_size, num_heads, head_dim, seq_len]
-        k_transposed = k.transpose(-2, -1)
-
-        # Batch matrix multiplication
-        # q shape: [batch_size, seq_len, num_heads, head_dim]
-        # k_transposed shape: [batch_size, num_heads, head_dim, seq_len]
-        # Resultant attn shape: [batch_size, num_heads, seq_len, seq_len]
-        attn = q @ k_transposed
-
-        # Scale the attention scores
-        attn = attn * self.scale
-        attn = attn.softmax(dim=-1)
-
-        # Transpose v for matrix multiplication: [batch_size, num_heads, seq_len, head_dim]\
-        # v_transposed = v.transpose(1, 2)
-
-        # attn shape: [batch_size, num_heads, seq_len, seq_len]
-        # v_transposed shape: [batch_size, num_heads, seq_len, head_dim]
-        # Resultant shape: [batch_size, num_heads, seq_len, head_dim]
-        # weighted_v = attn @ v_transposed
-        # out = weighted_v.transpose(1, 2).reshape(*weighted_v.shape[:2], -1)
-        # return self.to_out(out)
-
-        out = weighted_v.transpose(1, 2).reshape(*weighted_v.shape[:2], -1)
-
-        return self.to_out(out)
+        # Multi-head attention
+        # If cond is None, it will be ignored in multihead attention
+        attn_output, _ = self.multihead_attn(
+            query=x, key=cond, value=cond, need_weights=False
+        )
+        return attn_output
 
 
 class FeedForward(nn.Module):
