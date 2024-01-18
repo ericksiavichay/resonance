@@ -71,7 +71,6 @@ def generate(
             )
             latents = encoder(input_image_tensor, encoder_noise)
 
-            # TODO: set strength and add noise to the latents according to the strength
             start_step = n_steps - int(n_steps * strength)
             scheduler.timesteps = scheduler.timesteps[start_step:]
             latents = scheduler.add_noise(
