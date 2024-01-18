@@ -13,3 +13,4 @@ pydub
 plotly
 umap-learn
 joblib
+diffusers

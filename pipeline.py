@@ -65,6 +65,7 @@ def generate(
             input_image_tensor = input_image_tensor.unsqueeze(0)
             input_image_tensor = input_image_tensor.permute(0, 3, 1, 2)
 
+            latents_shape = (4, LATENTS_WIDTH, LATENTS_HEIGHT)
             encoder_noise = torch.randn(
                 latents_shape, generator=generator, device=device
             )

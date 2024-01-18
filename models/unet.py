@@ -13,6 +13,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 from models.attention import SpatialTransformer
+from typing import List
+import math
 
 
 class GroupNorm32(nn.GroupNorm):
@@ -26,7 +28,7 @@ def normalization(channels):
 
 class UpSample(nn.Module):
     def __init__(self, channels):
-        super().__init__(self, channels)
+        super().__init__()
 
         self.conv = nn.Conv2d(channels, channels, 3, padding=1)
 
@@ -37,7 +39,7 @@ class UpSample(nn.Module):
 
 
 class DownSample(nn.Module):
-    def __init__self(self, channels):
+    def __init__(self, channels):
         super().__init__()
 
         self.op = nn.Conv2d(channels, channels, 3, stride=2, padding=1)
@@ -99,15 +101,14 @@ class UNet(nn.Module):
         self,
         *,
         in_channels: int,
-        out_channels,
-        int,
+        out_channels: int,
         channels: int,
         n_res_blocks: int,
         attention_levels: List[int],
         channel_multipliers: List[int],
         n_heads: int,
         tf_layers: int = 1,
-        d_cond: int = 768
+        d_cond: int = 768,
     ):
         """
         Args
@@ -161,7 +162,7 @@ class UNet(nn.Module):
                 input_block_channels.append(channels)
 
         self.middle_block = TimestepEmbedSequential(
-            ResBlock(channels, d_t_embed),
+            ResBlock(channels, d_time_embed),
             SpatialTransformer(channels, n_heads, tf_layers, d_cond),
             ResBlock(channels, d_time_embed),
         )
@@ -173,7 +174,7 @@ class UNet(nn.Module):
                 layers = [
                     ResBlock(
                         channels + input_block_channels.pop(),
-                        d_t_embed,
+                        d_time_embed,
                         out_channels=channels_list[i],
                     )
                 ]

@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+from typing import Optional
 
 # implementation from https://nn.labml.ai/diffusion/stable_diffusion/model/unet_attention.html
 
@@ -63,12 +64,15 @@ class CrossAttention(nn.Module):
         attn = attn.softmax(dim=-1)
 
         # Transpose v for matrix multiplication: [batch_size, num_heads, seq_len, head_dim]\
-        v_transposed = v.transpose(1, 2)
+        # v_transposed = v.transpose(1, 2)
 
         # attn shape: [batch_size, num_heads, seq_len, seq_len]
         # v_transposed shape: [batch_size, num_heads, seq_len, head_dim]
         # Resultant shape: [batch_size, num_heads, seq_len, head_dim]
-        weighted_v = attn @ v_transposed
+        # weighted_v = attn @ v_transposed
+        # out = weighted_v.transpose(1, 2).reshape(*weighted_v.shape[:2], -1)
+        # return self.to_out(out)
+
         out = weighted_v.transpose(1, 2).reshape(*weighted_v.shape[:2], -1)
 
         return self.to_out(out)
@@ -132,14 +136,13 @@ class SpatialTransformer(nn.Module):
         n_heads: int,
         n_layers: int,
         d_cond: int,
-        device: str,
     ):
         """
         Following from: https://nn.labml.ai/diffusion/stable_diffusion/model/unet_attention.html
         """
         super().__init__()
         self.norm = nn.GroupNorm(
-            num_groups=32, num_channels=channels, eps=1e-6, affine=True, device=device
+            num_groups=32, num_channels=channels, eps=1e-6, affine=True
         )  # Group norm paper sets G = 32, could be a hyperparameter
         self.proj_in = nn.Conv2d(channels, channels, kernel_size=1, stride=1, padding=0)
 
@@ -153,7 +156,7 @@ class SpatialTransformer(nn.Module):
             channels, channels, kernel_size=1, stride=1, padding=0
         )
 
-    def forward(self, x: torch.Tensor, cond: torch.Tensor):
+    def forward(self, x: torch.Tensor, cond: torch.Tensor = None):
         b, c, h, w = x.shape
         x_in = x
         x = self.proj_in(self.norm(x))
