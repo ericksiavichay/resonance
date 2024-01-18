@@ -33,6 +33,8 @@ class CrossAttention(nn.Module):
             # Project cond to match d_model, and repeat it to match x's sequence length
             cond = self.cond_proj(cond)
             cond = cond.repeat(1, x.size(1), 1)  # Repeat along sequence length
+        else:
+            cond = x
 
         # Multi-head attention
         # If cond is None, it will be ignored in multihead attention
