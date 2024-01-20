@@ -157,7 +157,7 @@ class Encoder(nn.Sequential):
         x = mean + std * noise
         x *= 0.18215  # no idea why we scale it. it is commonly used in many VAEs and other diffusion based models
 
-        return x
+        return x, mean, log_var
 
 
 class Decoder(nn.Sequential):
