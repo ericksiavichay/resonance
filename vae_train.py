@@ -76,7 +76,7 @@ if __name__ == "__main__":
         esc50_train, batch_size=batch_size, shuffle=True, num_workers=0
     )
     esc50_val_loader = torch.utils.data.DataLoader(
-        esc50_val, batch_size=batch_size, shuffle=True, num_workers=0
+        esc50_val, batch_size=batch_size, shuffle=False, num_workers=0
     )
 
     wandb.login()
@@ -163,6 +163,22 @@ if __name__ == "__main__":
                 avg_val_loss += loss.item()
                 avg_val_reconstruction_loss += reconstruction_loss.item()
                 avg_val_kl_loss += kl_loss.item()
+
+                # log the first image from the first val batch per epoch
+                if i == 0:
+                    wandb.log(
+                        {
+                            "input": wandb.Image(
+                                x[0].detach().cpu().numpy(),
+                                caption="Input Spectrogram",
+                            ),
+                            "reconstruction": wandb.Image(
+                                x_hat[0].detach().cpu().numpy(),
+                                caption="Reconstructed Spectrogram",
+                            ),
+                        },
+                        step=epoch,
+                    )
 
         avg_val_loss /= len(esc50_val_loader)
         avg_val_reconstruction_loss /= len(esc50_val_loader)
