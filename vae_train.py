@@ -38,10 +38,12 @@ def pad_batch_to_divisible_by_8(tensor):
     return padded_tensor
 
 
-def split_data(data, val_split=0.2):
+def split_data(data, val_split=0.2, seed=42):
     val_size = int(len(data) * val_split)
     train_size = len(data) - val_size
-    return random_split(data, [train_size, val_size])
+    return random_split(
+        data, [train_size, val_size], generator=torch.Generator().manual_seed(seed)
+    )
 
 
 def get_mel_spectrogram(
@@ -71,9 +73,11 @@ def get_mel_spectrogram(
     )
 
     specs = mel_specgram(waveform)
+    specs = specs.unsqueeze(1)
+    specs = pad_batch_to_divisible_by_8(specs)
 
     # make sure shape is (B,C,H,W)
-    return specs.unsqueeze(1)
+    return specs
 
 
 class VAELoss(nn.Module):
@@ -148,7 +152,6 @@ if __name__ == "__main__":
             # conver to batch of mel-spectrograms
             print(f"Epoch {epoch} | Batch {i+1}/{len(esc50_train_loader)}")
             spectrograms = get_mel_spectrogram(x, sample_rate[0]).to("cuda")
-            spectrograms = pad_batch_to_divisible_by_8(spectrograms)
             B, C, H, W = spectrograms.shape
             random_noise = torch.rand(B, 4, H // 8, W // 8).to("cuda")
 
@@ -187,7 +190,6 @@ if __name__ == "__main__":
                 print(f"Epoch {epoch} | Batch {i+1}/{len(esc50_val_loader)}")
                 spectrograms = get_mel_spectrogram(x, sample_rate[0]).to("cuda")
                 B, C, H, W = spectrograms.shape
-                spectrograms = pad_batch_to_divisible_by_8(spectrograms)
                 random_noise = torch.rand(B, 4, H // 8, W // 8).to("cuda")
 
                 z, mean, log_var = encoder(spectrograms, noise=random_noise)
@@ -205,7 +207,7 @@ if __name__ == "__main__":
                     wandb.log(
                         {
                             "input": wandb.Image(
-                                x[0].detach().cpu().numpy(),
+                                spectrograms[0].detach().cpu().numpy(),
                                 caption="Input Mel-Spectrogram",
                             ),
                             "reconstruction": wandb.Image(

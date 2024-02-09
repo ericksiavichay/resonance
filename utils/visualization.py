@@ -51,3 +51,32 @@ def generate_umap(audio_embeddings, text_embeddings, text_labels, audio_ids):
         )
 
     return fig
+
+
+def generate_vae_umap(latents, text_labels):
+    reducer = umap.UMAP(random_state=1337)
+    latents_flattened = latents.reshape(latents.shape[0], -1)
+    latents_2d = reducer.fit_transform(latents_flattened)
+
+    hover_over = [f"{text}" for text in text_labels]
+
+    trace = go.Scatter(
+        x=latents_2d[:, 0],
+        y=latents_2d[:, 1],
+        mode="markers",
+        marker=dict(color="blue"),
+        name="Latents",
+        text=hover_over,  # Audio IDs for hover
+        hoverinfo="text",
+    )
+
+    # Combine the plots
+    fig = go.Figure(data=[trace])
+    # Customize layout
+    fig.update_layout(
+        title="Image Latent Space",
+        xaxis_title="Component 1",
+        yaxis_title="Component 2",
+    )
+
+    return fig
