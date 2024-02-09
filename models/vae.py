@@ -116,14 +116,14 @@ class ResidualBlock(nn.Module):
 class Encoder(nn.Sequential):
     def __init__(self):
         super().__init__(
-            nn.Conv2d(3, 128, kernel_size=3, padding=1),
+            nn.Conv2d(1, 128, kernel_size=3, padding=1),
             ResidualBlock(128, 128),
             ResidualBlock(128, 128),
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=0),
             ResidualBlock(128, 256),
             ResidualBlock(256, 256),
             nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=0),
-            ResidualBlock(128, 512),
+            ResidualBlock(256, 512),
             ResidualBlock(512, 512),
             nn.Conv2d(512, 512, kernel_size=3, stride=2, padding=0),
             ResidualBlock(512, 512),
@@ -157,7 +157,7 @@ class Encoder(nn.Sequential):
         x = mean + std * noise
         x *= 0.18215  # no idea why we scale it. it is commonly used in many VAEs and other diffusion based models
 
-        return x
+        return x, mean, log_var
 
 
 class Decoder(nn.Sequential):
@@ -188,7 +188,7 @@ class Decoder(nn.Sequential):
             ResidualBlock(128, 128),
             nn.GroupNorm(32, 128),
             nn.SiLU(),
-            nn.Conv2d(128, 3, kernel_size=3, padding=1),
+            nn.Conv2d(128, 1, kernel_size=3, padding=1),
         )
 
     def forward(self, x):
