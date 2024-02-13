@@ -69,6 +69,11 @@ class SimpleVAE(nn.Module):
         log_var = self.log_var(x)
         z = self.reparameterize(mean, log_var)
 
+        return z, mean, log_var
+
+    def decode(self, z):
+        return self.decoder(z)
+
 
 class SelfAttention(nn.Module):
     def __init__(self, n_heads, d_embed, in_proj_bias=True, out_proj_bias=True):
