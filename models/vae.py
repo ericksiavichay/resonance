@@ -14,7 +14,7 @@ class SimpleVAE(nn.Module):
     skip connections in the decoder.
     """
 
-    def __init__(self, spectrogram_shape, latent_dim=768):
+    def __init__(self, latent_dim=768):
         super().__init__()
 
         self.encoder = nn.Sequential(
@@ -36,18 +36,30 @@ class SimpleVAE(nn.Module):
         self.log_var = None
 
         self.decoder = nn.Sequential(
-            nn.Linear(latent_dim, 512 * 2 * 2),
+            nn.Linear(latent_dim, 512 * 1 * 6),
             nn.ReLU(),
-            nn.Unflatten(1, (512, 2, 2)),
-            nn.ConvTranspose2d(512, 256, kernel_size=4, stride=2, padding=0),
+            nn.Unflatten(1, (512, 1, 6)),
+            nn.Upsample(scale_factor=2, mode="nearest"),  # First upsampling
+            nn.Conv2d(512, 256, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=0),
+            nn.Upsample(scale_factor=2, mode="nearest"),  # Second upsampling
+            nn.Conv2d(256, 128, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=0),
+            nn.Upsample(scale_factor=2, mode="nearest"),  # Third upsampling
+            nn.Conv2d(128, 64, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=0),
+            nn.Upsample(scale_factor=2, mode="nearest"),  # Fourth upsampling
+            nn.Conv2d(64, 32, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.ConvTranspose2d(32, 1, kernel_size=3, stride=1, padding=0),
+            nn.Upsample(
+                scale_factor=2, mode="nearest"
+            ),  # Optional: Adjust or remove based on desired output size
+            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Upsample(
+                scale_factor=2, mode="nearest"
+            ),  # Optional: Adjust or remove based on desired output size
+            nn.Conv2d(16, 1, kernel_size=3, padding=1),
         )
 
     def reparameterize(self, mean, log_var):
