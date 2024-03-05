@@ -8,6 +8,85 @@ from torch.nn import functional as F
 import math
 
 
+class SimpleVAE(nn.Module):
+    """
+    Simple VAE with seperate linear layers for mean and log variance. Also uses
+    skip connections in the decoder.
+    """
+
+    def __init__(self, latent_dim=768):
+        super().__init__()
+
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
+
+        # these will dynamically change based on the input shape
+        self.mean = None
+        self.log_var = None
+
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, 512 * 1 * 6),
+            nn.ReLU(),
+            nn.Unflatten(1, (512, 1, 6)),
+            nn.Upsample(scale_factor=2, mode="nearest"),  # First upsampling
+            nn.Conv2d(512, 256, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Upsample(scale_factor=2, mode="nearest"),  # Second upsampling
+            nn.Conv2d(256, 128, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Upsample(scale_factor=2, mode="nearest"),  # Third upsampling
+            nn.Conv2d(128, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Upsample(scale_factor=2, mode="nearest"),  # Fourth upsampling
+            nn.Conv2d(64, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Upsample(
+                scale_factor=2, mode="nearest"
+            ),  # Optional: Adjust or remove based on desired output size
+            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Upsample(
+                scale_factor=2, mode="nearest"
+            ),  # Optional: Adjust or remove based on desired output size
+            nn.Conv2d(16, 1, kernel_size=3, padding=1),
+        )
+
+    def reparameterize(self, mean, log_var):
+        """
+        Reparameterization trick for VAE
+        """
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return eps * std + mean
+
+    def encode(self, x):
+        x = self.encoder(x)
+
+        if self.mean is None or self.log_var is None:
+            self.mean = nn.Linear(x.shape[1], 768)
+            self.log_var = nn.Linear(x.shape[1], 768)
+
+        mean = self.mean(x)
+        log_var = self.log_var(x)
+        z = self.reparameterize(mean, log_var)
+
+        return z, mean, log_var
+
+    def decode(self, z):
+        return self.decoder(z)
+
+
 class SelfAttention(nn.Module):
     def __init__(self, n_heads, d_embed, in_proj_bias=True, out_proj_bias=True):
         super().__init__()
