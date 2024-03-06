@@ -1,16 +1,19 @@
 """
 Main file for training the VAE model
 """
+
 import wandb
 import torch
 import torch.nn as nn
 import torchaudio.transforms as T
 import torch.nn.functional as F
 from torch.utils.data import random_split
+import matplotlib.pyplot as plt
+import librosa
 
 from utils import loaders
 import models.config as config
-from models.vae import Encoder, Decoder
+from models.vae import SimpleVAE
 
 # HYPERPARAMETERS
 BATCH_SIZE = 32
@@ -73,10 +76,13 @@ def get_mel_spectrogram(
     )
 
     specs = mel_specgram(waveform)
-    specs = specs.unsqueeze(1)
-    specs = pad_batch_to_divisible_by_8(specs)
+    db_transform = T.AmplitudeToDB(top_db=80)
+    specs = db_transform(specs)
 
-    # make sure shape is (B,C,H,W)
+    # make sure shape is (B, 1, F, T)
+    specs = specs.unsqueeze(1)
+    # specs = pad_batch_to_divisible_by_8(specs)
+
     return specs
 
 
@@ -90,8 +96,6 @@ class VAELoss(nn.Module):
         """
         x: (B, C, H, W)
         x_hat: (B, C, H, W)
-        mean: (B, C, H, W)
-        log_var: (B, C, H, W)
         """
         # Reconstruction loss
         recon_loss = F.mse_loss(x_hat, x, reduction="mean")
@@ -128,11 +132,10 @@ if __name__ == "__main__":
     )
 
     print("Initializing VAE...")
-    encoder = Encoder().to("cuda")
-    decoder = Decoder().to("cuda")
+    vae = SimpleVAE().to("cuda")
     loss_fn = VAELoss(beta=BETA).to("cuda")
     optimizer = torch.optim.Adam(
-        [{"params": encoder.parameters()}, {"params": decoder.parameters()}],
+        [{"params": vae.parameters()}],
         lr=LEARNING_RATE,
     )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -143,8 +146,7 @@ if __name__ == "__main__":
     print("Training...")
 
     for epoch in range(EPOCHS):
-        encoder.train()
-        decoder.train()
+        vae.train()
         avg_train_loss = 0
         avg_train_reconstruction_loss = 0
         avg_train_kl_loss = 0
@@ -152,12 +154,10 @@ if __name__ == "__main__":
             # conver to batch of mel-spectrograms
             print(f"Epoch {epoch} | Batch {i+1}/{len(esc50_train_loader)}")
             spectrograms = get_mel_spectrogram(x, sample_rate[0]).to("cuda")
-            B, C, H, W = spectrograms.shape
-            random_noise = torch.rand(B, 4, H // 8, W // 8).to("cuda")
 
             optimizer.zero_grad()
-            z, mean, log_var = encoder(spectrograms, noise=random_noise)
-            x_hat = decoder(z)
+            z, mean, log_var = vae.encode(spectrograms)
+            x_hat = vae.decode(z)
 
             loss, reconstruction_loss, kl_loss = loss_fn(
                 spectrograms, x_hat, mean, log_var
@@ -178,8 +178,7 @@ if __name__ == "__main__":
         )
 
         # Validation
-        encoder.eval()
-        decoder.eval()
+        vae.eval()
         avg_val_loss = 0
         avg_val_reconstruction_loss = 0
         avg_val_kl_loss = 0
@@ -189,11 +188,9 @@ if __name__ == "__main__":
             ):
                 print(f"Epoch {epoch} | Batch {i+1}/{len(esc50_val_loader)}")
                 spectrograms = get_mel_spectrogram(x, sample_rate[0]).to("cuda")
-                B, C, H, W = spectrograms.shape
-                random_noise = torch.rand(B, 4, H // 8, W // 8).to("cuda")
 
-                z, mean, log_var = encoder(spectrograms, noise=random_noise)
-                x_hat = decoder(z)
+                z, mean, log_var = vae.encode(spectrograms)
+                x_hat = vae.decode(z)
 
                 loss, reconstruction_loss, kl_loss = loss_fn(
                     spectrograms, x_hat, mean, log_var
@@ -204,19 +201,51 @@ if __name__ == "__main__":
 
                 # log the first image from the first val batch per epoch
                 if i == 0:
+                    f_max = config.fmax
+                    # Assuming `original` and `reconstructed` are your dB Mel spectrograms
+                    # Plot the original spectrogram
+                    fig1, ax1 = plt.subplots(figsize=(10, 4))
+                    librosa.display.specshow(
+                        spectrograms[0].detach().cpu().squeeze(0).numpy(),
+                        x_axis="time",
+                        y_axis="mel",
+                        sr=sample_rate,
+                        fmax=f_max,
+                        ax=ax1,
+                    )
+                    plt.colorbar(format="%+2.0f dB", ax=ax1)
+                    plt.title("Original Spectrogram")
+
+                    # Plot the reconstructed spectrogram
+                    fig2, ax2 = plt.subplots(figsize=(10, 4))
+                    librosa.display.specshow(
+                        x_hat[0].detach().cpu().numpy(),
+                        x_axis="time",
+                        y_axis="mel",
+                        sr=sample_rate,
+                        fmax=f_max,
+                        ax=ax2,
+                    )
+                    plt.colorbar(format="%+2.0f dB", ax=ax2)
+                    plt.title("Reconstructed Spectrogram")
+
                     wandb.log(
                         {
                             "input": wandb.Image(
-                                spectrograms[0].detach().cpu().numpy(),
-                                caption="Input Mel-Spectrogram",
+                                fig1,
+                                caption="Input dB Mel-Spectrogram",
                             ),
                             "reconstruction": wandb.Image(
-                                x_hat[0].detach().cpu().numpy(),
-                                caption="Reconstructed Mel-Spectrogram",
+                                fig2,
+                                caption="Reconstructed dB Mel-Spectrogram",
                             ),
                         },
                         step=epoch,
                     )
+
+                    # Close the plots to free up memory
+                    plt.close(fig1)
+                    plt.close(fig2)
 
         avg_val_loss /= len(esc50_val_loader)
         avg_val_reconstruction_loss /= len(esc50_val_loader)

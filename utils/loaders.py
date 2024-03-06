@@ -39,7 +39,7 @@ class ESC50Loader(Dataset):
             idx = idx.tolist()
 
         audio_name = os.path.join(self.path + "audio/", self.meta_data["filename"][idx])
-        waveform, sample_rate = torchaudio.load(audio_name)
+        waveform, sample_rate = torchaudio.load(audio_name, normalize=True)
         waveform = waveform.mean(dim=0, keepdim=True)  # takes care of stereo sound
         waveform = torch.squeeze(waveform, dim=0)
         text_label = self.meta_data["category"][idx]
