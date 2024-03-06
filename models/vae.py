@@ -74,8 +74,8 @@ class SimpleVAE(nn.Module):
         x = self.encoder(x)
 
         if self.mean is None or self.log_var is None:
-            self.mean = nn.Linear(x.shape[1], 768)
-            self.log_var = nn.Linear(x.shape[1], 768)
+            self.mean = nn.Linear(x.shape[1], 768).to("cuda")
+            self.log_var = nn.Linear(x.shape[1], 768).to("cuda")
 
         mean = self.mean(x)
         log_var = self.log_var(x)
