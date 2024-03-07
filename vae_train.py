@@ -13,7 +13,7 @@ import librosa
 
 from utils import loaders
 import models.config as config
-from models.vae import SimpleVAE
+from models.vae import SimpleVAE, LinearVAE
 
 # HYPERPARAMETERS
 BATCH_SIZE = 32
@@ -23,22 +23,19 @@ BETA = 1.0
 VAL_SPLIT = 0.3
 
 
-def pad_batch_to_divisible_by_8(tensor):
+def log_image(spec, epoch, f_max, name):
     """
-    Pads each spectrogram in the batch on the top and/or right to make its height and width divisible by 8.
-    Assumes the tensor is in the shape (N, 1, H, W).
+    Given a tensor, converts to a db mel spec image and logs it to wandb
     """
-    # Get the current height and width
-    _, _, H, W = tensor.shape
-
-    # Calculate the padding needed for height and width
-    H_pad = (8 - H % 8) % 8
-    W_pad = (8 - W % 8) % 8
-
-    # Pad the tensor. The padding format is (left, right, top, bottom)
-    padded_tensor = F.pad(tensor, (0, W_pad, H_pad, 0), mode="constant", value=0)
-
-    return padded_tensor
+    plt.figure(figsize=(10, 4))
+    librosa.display.specshow(
+        spec, x_axis="time", y_axis="mel", sr=sample_rate, fmax=f_max
+    )
+    plt.colorbar(format="%+2.0f dB")
+    plt.title(f"{name} dB Mel Spectrogram")
+    plt.tight_layout()
+    wandb.log({f"{name}_spec": [wandb.Image(plt)]}, step=epoch)
+    plt.close()
 
 
 def split_data(data, val_split=0.2, seed=42):
@@ -78,10 +75,9 @@ def get_mel_spectrogram(
     specs = mel_specgram(waveform)
     db_transform = T.AmplitudeToDB(top_db=80)
     specs = db_transform(specs)
-
-    # make sure shape is (B, 1, F, T)
+    specs -= specs.amax()
+    specs = torch.clamp(specs, min=-80)
     specs = specs.unsqueeze(1)
-    # specs = pad_batch_to_divisible_by_8(specs)
 
     return specs
 
@@ -132,7 +128,8 @@ if __name__ == "__main__":
     )
 
     print("Initializing VAE...")
-    vae = SimpleVAE().to("cuda")
+    input_dim = (config.mel_bins, 512)
+    vae = LinearVAE().to("cuda")
     loss_fn = VAELoss(beta=BETA).to("cuda")
     optimizer = torch.optim.Adam(
         [{"params": vae.parameters()}],
@@ -154,6 +151,7 @@ if __name__ == "__main__":
             # conver to batch of mel-spectrograms
             print(f"Epoch {epoch} | Batch {i+1}/{len(esc50_train_loader)}")
             spectrograms = get_mel_spectrogram(x, sample_rate[0]).to("cuda")
+            spectrograms = (-1 * spectrograms) / 80
 
             optimizer.zero_grad()
             z, mean, log_var = vae.encode(spectrograms)
@@ -188,6 +186,7 @@ if __name__ == "__main__":
             ):
                 print(f"Epoch {epoch} | Batch {i+1}/{len(esc50_val_loader)}")
                 spectrograms = get_mel_spectrogram(x, sample_rate[0]).to("cuda")
+                spectrograms = (-1 * spectrograms) / 80
 
                 z, mean, log_var = vae.encode(spectrograms)
                 x_hat = vae.decode(z)
@@ -204,48 +203,11 @@ if __name__ == "__main__":
                     f_max = config.fmax
                     # Assuming `original` and `reconstructed` are your dB Mel spectrograms
                     # Plot the original spectrogram
-                    fig1, ax1 = plt.subplots(figsize=(10, 4))
-                    librosa.display.specshow(
-                        spectrograms[0].detach().cpu().squeeze(0).numpy(),
-                        x_axis="time",
-                        y_axis="mel",
-                        sr=sample_rate,
-                        fmax=f_max,
-                        ax=ax1,
-                    )
-                    plt.colorbar(format="%+2.0f dB", ax=ax1)
-                    plt.title("Original Spectrogram")
+                    original_spec = (spectrograms[0].detach().cpu().numpy() * -1) * 80
+                    recon_spec = (x_hat[0].detach().cpu().numpy() * -1) * 80
 
-                    # Plot the reconstructed spectrogram
-                    fig2, ax2 = plt.subplots(figsize=(10, 4))
-                    librosa.display.specshow(
-                        x_hat[0].detach().cpu().numpy(),
-                        x_axis="time",
-                        y_axis="mel",
-                        sr=sample_rate,
-                        fmax=f_max,
-                        ax=ax2,
-                    )
-                    plt.colorbar(format="%+2.0f dB", ax=ax2)
-                    plt.title("Reconstructed Spectrogram")
-
-                    wandb.log(
-                        {
-                            "input": wandb.Image(
-                                fig1,
-                                caption="Input dB Mel-Spectrogram",
-                            ),
-                            "reconstruction": wandb.Image(
-                                fig2,
-                                caption="Reconstructed dB Mel-Spectrogram",
-                            ),
-                        },
-                        step=epoch,
-                    )
-
-                    # Close the plots to free up memory
-                    plt.close(fig1)
-                    plt.close(fig2)
+                    log_image(original_spec, epoch, f_max, "original")
+                    log_image(recon_spec, epoch, f_max, "reconstructed")
 
         avg_val_loss /= len(esc50_val_loader)
         avg_val_reconstruction_loss /= len(esc50_val_loader)

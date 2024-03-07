@@ -8,6 +8,55 @@ from torch.nn import functional as F
 import math
 
 
+class LinearVAE(nn.Module):
+    """
+    A simple VAE with linear layers
+    """
+
+    def __init__(self, input_dim, latent_dim=768):
+        super().__init__()
+
+        self.encoder = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(input_dim[0] * input_dim[1], 2048),
+            nn.ReLU(),
+            nn.Linear(2048, 1024),
+            nn.ReLU(),
+        )
+
+        self.mean = nn.Linear(1024, latent_dim)
+        self.log_var = nn.Linear(1024, latent_dim)
+
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 2048),
+            nn.ReLU(),
+            nn.Linear(2048, input_dim[0] * input_dim[1]),
+            nn.Unflatten(1, (1, input_dim[0], input_dim[1])),
+        )
+
+    def reparameterize(self, mean, log_var):
+        """
+        Reparameterization trick for VAE
+        """
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return eps * std + mean
+
+    def encode(self, x):
+        x = self.encoder(x)
+
+        mean = self.mean(x)
+        log_var = self.log_var(x)
+        z = self.reparameterize(mean, log_var)
+
+        return z, mean, log_var
+
+    def decode(self, z):
+        return self.decoder(z)
+
+
 class SimpleVAE(nn.Module):
     """
     Simple VAE with seperate linear layers for mean and log variance. Also uses
